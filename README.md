@@ -31,6 +31,7 @@ API REST para un e-commerce básico que cubre el flujo completo: registro de cli
 - **Órdenes de compra** con validación de stock, cálculo de IVA (13%) y descuento de inventario dentro de una transacción.
 - **Historial de compras** por usuario.
 - **Pagos con Stripe** (`stripe/stripe-php`): creación de PaymentIntent, confirmación en modo prueba y webhook con verificación de firma.
+- **Devolución de stock**: si Stripe rechaza el pago o se cancela el PaymentIntent, la orden pasa a `failed`/`cancelled` y el inventario reservado vuelve al catálogo. La operación es idempotente (no repone dos veces si el rechazo llega por `/confirm` y luego por el webhook).
 - Validaciones con **Form Requests** y respuestas de error JSON consistentes.
 - Documentación **Swagger/OpenAPI** generada con `darkaonline/l5-swagger` a partir de atributos PHP 8.
 - Seeders con 20 productos de ejemplo y usuarios de prueba.
@@ -156,7 +157,7 @@ curl -X POST http://localhost:8000/api/payments/1/confirm \
 curl http://localhost:8000/api/orders -H "Authorization: Bearer TOKEN"
 ```
 
-Estados de la orden: `pending` → `paid` (pago exitoso) / `failed` (rechazado) / `cancelled`.
+Estados de la orden: `pending` → `paid` (pago exitoso) / `failed` (rechazado) / `cancelled`. Solo las órdenes `pending` pueden pagarse; al pasar a `failed` o `cancelled` el stock se repone.
 
 ## Estructura de la base de datos
 

@@ -96,7 +96,8 @@ class PaymentController extends ApiController
             $payment = $this->stripe->confirmPaymentIntent($payment, $request->validated('payment_method') ?? 'pm_card_visa');
         } catch (\Stripe\Exception\CardException $e) {
             $payment->update(['status' => 'failed', 'stripe_response' => $e->getJsonBody()]);
-            $payment->order->update(['status' => Order::STATUS_FAILED]);
+            // La orden pasa a "failed" y el stock reservado vuelve al inventario
+            $payment->order->markAsFailed();
 
             return $this->error('Pago rechazado: '.$e->getMessage(), 402);
         } catch (ApiErrorException $e) {
@@ -164,7 +165,8 @@ class PaymentController extends ApiController
                 $this->stripe->applyIntent($payment, $intent);
                 if ($event->type === 'payment_intent.payment_failed') {
                     $payment->update(['status' => 'failed']);
-                    $payment->order->update(['status' => Order::STATUS_FAILED]);
+                    // Idempotente: si /confirm ya repuso el stock, aquí no se repone otra vez
+                    $payment->order->markAsFailed();
                 }
             }
         }

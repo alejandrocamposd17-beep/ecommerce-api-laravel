@@ -2,8 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\StripeService;
+use Mockery\MockInterface;
+use Stripe\Exception\CardException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -70,5 +75,75 @@ class ApiFlowTest extends TestCase
         $this->actingAs($user)->postJson('/api/orders', [
             'items' => [['product_id' => $product->id, 'quantity' => 5]],
         ])->assertStatus(409);
+    }
+
+    /** Crea una orden de 2 unidades (stock 5 -> 3) con su intento de pago. */
+    private function pendingOrderWithPayment(User $user, Product $product): array
+    {
+        $orderId = $this->actingAs($user)->postJson('/api/orders', [
+            'items' => [['product_id' => $product->id, 'quantity' => 2]],
+        ])->assertCreated()->json('data.id');
+
+        $order = Order::findOrFail($orderId);
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'stripe_payment_intent_id' => 'pi_test_'.$order->id,
+            'stripe_client_secret' => 'pi_test_secret',
+            'amount' => $order->total,
+            'currency' => 'usd',
+            'status' => 'requires_payment_method',
+        ]);
+
+        return [$order, $payment];
+    }
+
+    public function test_declined_payment_marks_order_failed_and_restores_stock(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['price' => 10, 'stock' => 5]);
+        [$order, $payment] = $this->pendingOrderWithPayment($user, $product);
+        $this->assertEquals(3, $product->fresh()->stock);
+
+        // Stripe simulado: la tarjeta es rechazada
+        $this->mock(StripeService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('confirmPaymentIntent')->once()->andThrow(
+                CardException::factory('Your card was declined.', 402, null, ['error' => ['code' => 'card_declined']], null, 'card_declined', 'generic_decline')
+            );
+        });
+
+        $this->actingAs($user)->postJson("/api/payments/{$payment->id}/confirm", ['payment_method' => 'pm_card_chargeDeclined'])
+            ->assertStatus(402)
+            ->assertJsonPath('success', false);
+
+        $this->assertEquals(Order::STATUS_FAILED, $order->fresh()->status);
+        $this->assertEquals('failed', $payment->fresh()->status);
+        $this->assertEquals(5, $product->fresh()->stock);
+    }
+
+    public function test_stock_is_restored_only_once(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['price' => 10, 'stock' => 5]);
+        [$order] = $this->pendingOrderWithPayment($user, $product);
+
+        // Primer rechazo (confirm) y segundo aviso (webhook) sobre la misma orden
+        $this->assertTrue($order->markAsFailed());
+        $this->assertFalse($order->markAsFailed());
+        $this->assertFalse($order->markAsCancelled());
+
+        $this->assertEquals(5, $product->fresh()->stock);
+        $this->assertEquals(Order::STATUS_FAILED, $order->fresh()->status);
+    }
+
+    public function test_paid_order_does_not_restore_stock(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::factory()->create(['price' => 10, 'stock' => 5]);
+        [$order] = $this->pendingOrderWithPayment($user, $product);
+        $order->update(['status' => Order::STATUS_PAID]);
+
+        $this->assertFalse($order->markAsCancelled());
+        $this->assertEquals(3, $product->fresh()->stock);
+        $this->assertEquals(Order::STATUS_PAID, $order->fresh()->status);
     }
 }

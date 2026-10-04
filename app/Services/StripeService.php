@@ -81,7 +81,7 @@ class StripeService
             $payment->paid_at = now();
             $payment->order->update(['status' => Order::STATUS_PAID]);
         } elseif (in_array($intent->status, ['canceled'])) {
-            $payment->order->update(['status' => Order::STATUS_CANCELLED]);
+            $payment->order->markAsCancelled(); // repone el stock reservado
         }
 
         $payment->save();
