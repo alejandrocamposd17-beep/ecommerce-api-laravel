@@ -146,4 +146,12 @@ class ApiFlowTest extends TestCase
         $this->assertEquals(3, $product->fresh()->stock);
         $this->assertEquals(Order::STATUS_PAID, $order->fresh()->status);
     }
+
+    public function test_protected_route_without_token_returns_json_401(): void
+    {
+        // Swagger UI y curl envían "Accept: */*": antes esto daba 500 "Route [login] not defined"
+        $this->withHeaders(['Accept' => '*/*'])->get('/api/orders')
+            ->assertStatus(401)
+            ->assertJsonPath('success', false);
+    }
 }

@@ -15,8 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // API basada en tokens Bearer (Sanctum): no se usa statefulApi(),
         // que exige CSRF a peticiones del mismo dominio (Swagger UI) y causaba 419.
+
+        // Sin token, no redirigir a una ruta "login" (no existe en una API):
+        // se lanza AuthenticationException y ApiExceptionHandler responde 401 en JSON.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::register($exceptions);
     })->create();
-    

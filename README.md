@@ -75,6 +75,21 @@ Abrir en el navegador: **http://localhost:8000/api/documentation**
 
 > En Windows con XAMPP/Laragon el proceso es el mismo. Si `php artisan serve` usa otro puerto, actualizar `APP_URL` y `L5_SWAGGER_CONST_HOST` en `.env`.
 
+### Opción rápida con SQLite (sin MySQL)
+
+En `.env` cambiar `DB_CONNECTION=mysql` por `DB_CONNECTION=sqlite` y comentar las demás líneas `DB_*`. Al correr `php artisan migrate --seed`, Laravel ofrece crear `database/database.sqlite`.
+
+### Windows: si `php artisan serve` falla con "Failed to listen on 127.0.0.1:8000"
+
+Es un problema conocido de PHP en Windows. Dos soluciones:
+
+- En `php.ini` cambiar `variables_order` a `"EGPCS"` y volver a abrir la terminal.
+- O levantar el servidor de PHP directamente desde la carpeta `public`:
+  ```powershell
+  cd public
+  php -S 127.0.0.1:8000 ..\vendor\laravel\framework\src\Illuminate\Foundation\resources\server.php
+  ```
+
 ## Configuración de Stripe
 
 1. Crear cuenta en https://dashboard.stripe.com y activar el **modo de prueba**.
