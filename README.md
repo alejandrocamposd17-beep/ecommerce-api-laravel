@@ -245,4 +245,4 @@ php artisan test
 
 ---
 
-Proyecto académico desarrollado por **Alejandro Campos**.
+Desarrollado por **Alejandro Campos**.
