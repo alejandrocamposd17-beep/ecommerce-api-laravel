@@ -154,4 +154,14 @@ class ApiFlowTest extends TestCase
             ->assertStatus(401)
             ->assertJsonPath('success', false);
     }
+
+    public function test_local_product_image_is_returned_as_absolute_url(): void
+    {
+        $product = Product::factory()->create(['image_url' => '/images/products/laptop.svg']);
+
+        $url = $this->getJson("/api/products/{$product->id}")->assertOk()->json('data.image_url');
+
+        $this->assertStringStartsWith('http', $url);
+        $this->assertStringEndsWith('/images/products/laptop.svg', $url);
+    }
 }

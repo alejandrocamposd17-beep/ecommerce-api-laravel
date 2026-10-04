@@ -34,7 +34,7 @@ API REST para un e-commerce básico que cubre el flujo completo: registro de cli
 - **Devolución de stock**: si Stripe rechaza el pago o se cancela el PaymentIntent, la orden pasa a `failed`/`cancelled` y el inventario reservado vuelve al catálogo. La operación es idempotente (no repone dos veces si el rechazo llega por `/confirm` y luego por el webhook).
 - Validaciones con **Form Requests** y respuestas de error JSON consistentes.
 - Documentación **Swagger/OpenAPI** generada con `darkaonline/l5-swagger` a partir de atributos PHP 8.
-- Seeders con 20 productos de ejemplo y usuarios de prueba.
+- Seeders con 20 productos de ejemplo y usuarios de prueba. Cada producto tiene su propia ilustración en `public/images/products` (SVG livianos, sin depender de servicios externos).
 
 ## Requisitos
 

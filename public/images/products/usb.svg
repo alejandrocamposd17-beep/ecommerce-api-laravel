@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300"><defs>
+<linearGradient id="scr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d55b8"/><stop offset="1" stop-color="#16245c"/></linearGradient>
+<linearGradient id="metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9ecf4"/><stop offset="1" stop-color="#b9c0d3"/></linearGradient>
+<linearGradient id="dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3f52"/><stop offset="1" stop-color="#1b1e2b"/></linearGradient>
+</defs>
+<rect width="400" height="300" fill="#f3eee2"/>
+<ellipse cx="195" cy="196" rx="105" ry="8" fill="#1b1e2b" opacity=".12"/>
+<rect x="230" y="128" width="62" height="40" rx="3" fill="url(#metal)"/>
+<rect x="250" y="138" width="10" height="8" fill="#8c93a8"/><rect x="268" y="138" width="10" height="8" fill="#8c93a8"/>
+<rect x="100" y="114" width="140" height="68" rx="16" fill="#233a8f"/>
+<rect x="100" y="114" width="70" height="68" rx="16" fill="#16245c"/>
+<circle cx="122" cy="148" r="8" fill="#f3eee2"/>
+<rect x="185" y="140" width="40" height="16" rx="8" fill="#f2b33d"/></svg>
