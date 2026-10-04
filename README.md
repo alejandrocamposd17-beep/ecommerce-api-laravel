@@ -46,8 +46,8 @@ API REST para un e-commerce básico que cubre el flujo completo: registro de cli
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/alejandrocamposd17-beep/ecommerce-api-segura.git
-cd ecommerce-api-segura
+git clone https://github.com/alejandrocamposd17-beep/ecommerce-api-laravel.git
+cd ecommerce-api-laravel
 
 # 2. Instalar dependencias
 composer install
