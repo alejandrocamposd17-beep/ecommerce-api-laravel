@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
+use App\Models\AuditLog;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use OpenApi\Attributes as OA;
 class ProductController extends ApiController
 {
     #[OA\Get(
-        path: '/api/products',
+        path: '/api/v1/products',
         tags: ['Productos'],
         summary: 'Listado público de productos (paginado)',
         parameters: [
@@ -55,7 +56,7 @@ class ProductController extends ApiController
     }
 
     #[OA\Get(
-        path: '/api/products/{id}',
+        path: '/api/v1/products/{id}',
         tags: ['Productos'],
         summary: 'Ver detalle de un producto',
         parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
@@ -79,7 +80,7 @@ class ProductController extends ApiController
     }
 
     #[OA\Post(
-        path: '/api/products',
+        path: '/api/v1/products',
         tags: ['Productos'],
         summary: 'Crear producto (requiere rol admin)',
         security: [['bearerAuth' => []]],
@@ -105,12 +106,13 @@ class ProductController extends ApiController
     public function store(StoreProductRequest $request): JsonResponse
     {
         $product = Product::create($request->validated());
+        AuditLog::record($request, 'product.created', $product, $request->validated());
 
         return $this->success(new ProductResource($product), 'Producto creado correctamente.', 201);
     }
 
     #[OA\Put(
-        path: '/api/products/{id}',
+        path: '/api/v1/products/{id}',
         tags: ['Productos'],
         summary: 'Actualizar producto (requiere rol admin)',
         security: [['bearerAuth' => []]],
@@ -136,13 +138,15 @@ class ProductController extends ApiController
     )]
     public function update(UpdateProductRequest $request, Product $product): JsonResponse
     {
+        $original = $product->getAttributes();
         $product->update($request->validated());
+        AuditLog::record($request, 'product.updated', $product, AuditLog::diff($original, $product));
 
         return $this->success(new ProductResource($product->fresh()), 'Producto actualizado correctamente.');
     }
 
     #[OA\Delete(
-        path: '/api/products/{id}',
+        path: '/api/v1/products/{id}',
         tags: ['Productos'],
         summary: 'Eliminar producto (requiere rol admin)',
         security: [['bearerAuth' => []]],
@@ -163,10 +167,12 @@ class ProductController extends ApiController
 
         if ($product->orderItems()->exists()) {
             $product->update(['is_active' => false]);
+            AuditLog::record($request, 'product.deactivated', $product);
 
             return $this->error('El producto tiene órdenes asociadas; se desactivó en lugar de eliminarse.', 409);
         }
 
+        AuditLog::record($request, 'product.deleted', $product, ['name' => $product->name]);
         $product->delete();
 
         return $this->success(null, 'Producto eliminado correctamente.');

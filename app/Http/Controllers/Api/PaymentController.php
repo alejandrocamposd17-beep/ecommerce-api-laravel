@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\ConfirmPaymentRequest;
 use App\Http\Resources\PaymentResource;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\StripeEvent;
 use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 use Stripe\Exception\ApiErrorException;
@@ -19,7 +23,7 @@ class PaymentController extends ApiController
     public function __construct(protected StripeService $stripe) {}
 
     #[OA\Post(
-        path: '/api/orders/{id}/pay',
+        path: '/api/v1/orders/{id}/pay',
         tags: ['Pagos'],
         summary: 'Iniciar el pago de una orden (crea un PaymentIntent en Stripe)',
         description: 'Devuelve el client_secret que el frontend usa con Stripe.js / Elements para completar el pago.',
@@ -63,7 +67,7 @@ class PaymentController extends ApiController
     }
 
     #[OA\Post(
-        path: '/api/payments/{id}/confirm',
+        path: '/api/v1/payments/{id}/confirm',
         tags: ['Pagos'],
         summary: 'Confirmar el pago desde el backend (modo prueba)',
         description: 'Confirma el PaymentIntent con un método de pago de prueba de Stripe (por defecto pm_card_visa). Permite probar el flujo completo desde Swagger sin frontend.',
@@ -120,7 +124,7 @@ class PaymentController extends ApiController
     }
 
     #[OA\Get(
-        path: '/api/payments/{id}',
+        path: '/api/v1/payments/{id}',
         tags: ['Pagos'],
         summary: 'Consultar estado de un pago (sincroniza con Stripe)',
         security: [['bearerAuth' => []]],
@@ -151,10 +155,10 @@ class PaymentController extends ApiController
     }
 
     #[OA\Post(
-        path: '/api/stripe/webhook',
+        path: '/api/v1/stripe/webhook',
         tags: ['Pagos'],
-        summary: 'Webhook de Stripe (payment_intent.succeeded / payment_failed)',
-        description: 'Endpoint público que Stripe invoca. Verifica la firma con STRIPE_WEBHOOK_SECRET y actualiza el estado del pago y la orden.',
+        summary: 'Webhook de Stripe (pagos y reembolsos)',
+        description: 'Endpoint público que Stripe invoca. Verifica la firma con STRIPE_WEBHOOK_SECRET, ignora eventos repetidos (idempotente por ID de evento) y actualiza el pago y la orden. Eventos: payment_intent.succeeded, payment_intent.payment_failed, payment_intent.canceled y charge.refunded.',
         responses: [
             new OA\Response(response: 200, description: 'Evento procesado'),
             new OA\Response(response: 400, description: 'Firma inválida', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
@@ -168,6 +172,26 @@ class PaymentController extends ApiController
             return $this->error('Firma de webhook inválida.', 400);
         }
 
+        // Stripe puede reenviar el mismo evento: cada ID se procesa una sola vez
+        if (StripeEvent::where('event_id', $event->id)->exists()) {
+            return $this->success(['received' => true, 'type' => $event->type, 'duplicate' => true], 'Evento ya procesado.');
+        }
+
+        try {
+            DB::transaction(function () use ($event) {
+                // Se registra primero: si dos entregas llegan a la vez, el índice único detiene la segunda
+                StripeEvent::create(['event_id' => $event->id, 'type' => $event->type, 'processed_at' => now()]);
+                $this->handleEvent($event);
+            });
+        } catch (UniqueConstraintViolationException) {
+            return $this->success(['received' => true, 'type' => $event->type, 'duplicate' => true], 'Evento ya procesado.');
+        }
+
+        return $this->success(['received' => true, 'type' => $event->type], 'Evento procesado.');
+    }
+
+    protected function handleEvent(\Stripe\Event $event): void
+    {
         if (in_array($event->type, ['payment_intent.succeeded', 'payment_intent.payment_failed', 'payment_intent.canceled'])) {
             /** @var \Stripe\PaymentIntent $intent */
             $intent = $event->data->object;
@@ -181,9 +205,60 @@ class PaymentController extends ApiController
                     $payment->order->markAsFailed();
                 }
             }
+
+            return;
         }
 
-        return $this->success(['received' => true, 'type' => $event->type], 'Evento procesado.');
+        // Reembolso completo hecho desde el dashboard de Stripe
+        if ($event->type === 'charge.refunded') {
+            /** @var \Stripe\Charge $charge */
+            $charge = $event->data->object;
+            $payment = Payment::where('stripe_payment_intent_id', $charge->payment_intent)->first();
+
+            if ($payment && $charge->refunded) {
+                $this->stripe->markRefunded($payment);
+            }
+        }
+    }
+
+    #[OA\Post(
+        path: '/api/v1/orders/{id}/refund',
+        tags: ['Administración'],
+        summary: 'Reembolsar una orden pagada (requiere rol admin)',
+        description: 'Reembolsa el pago completo en Stripe, marca la orden como refunded, devuelve el stock, libera el cupón y avisa al cliente por correo.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Reembolso procesado', content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'success', type: 'boolean', example: true),
+                new OA\Property(property: 'message', type: 'string'),
+                new OA\Property(property: 'data', ref: '#/components/schemas/Payment'),
+            ])),
+            new OA\Response(response: 403, description: 'Requiere rol admin', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 409, description: 'La orden no está pagada', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+            new OA\Response(response: 502, description: 'Error de comunicación con Stripe', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ]
+    )]
+    public function refund(Request $request, Order $order): JsonResponse
+    {
+        $payment = $order->payments()->where('status', 'succeeded')->latest('id')->first();
+
+        if ($order->status !== Order::STATUS_PAID || ! $payment) {
+            return $this->error("La orden se encuentra en estado '{$order->status}' y no puede reembolsarse.", 409);
+        }
+
+        try {
+            $payment = $this->stripe->refundPayment($payment);
+        } catch (ApiErrorException $e) {
+            return $this->stripeUnavailable($e, 'refund', $order->id);
+        }
+
+        AuditLog::record($request, 'order.refunded', $order, [
+            'amount' => (float) $payment->amount,
+            'stripe_refund_id' => $payment->stripe_refund_id,
+        ]);
+
+        return $this->success(new PaymentResource($payment), 'Reembolso procesado correctamente.');
     }
 
     /**

@@ -14,7 +14,7 @@ use OpenApi\Attributes as OA;
 class AuthController extends ApiController
 {
     #[OA\Post(
-        path: '/api/auth/register',
+        path: '/api/v1/auth/register',
         tags: ['Autenticación'],
         summary: 'Registrar un nuevo cliente',
         requestBody: new OA\RequestBody(
@@ -63,7 +63,7 @@ class AuthController extends ApiController
     }
 
     #[OA\Post(
-        path: '/api/auth/login',
+        path: '/api/v1/auth/login',
         tags: ['Autenticación'],
         summary: 'Iniciar sesión y obtener token',
         requestBody: new OA\RequestBody(
@@ -100,7 +100,7 @@ class AuthController extends ApiController
     }
 
     #[OA\Get(
-        path: '/api/auth/me',
+        path: '/api/v1/auth/me',
         tags: ['Autenticación'],
         summary: 'Obtener el usuario autenticado',
         security: [['bearerAuth' => []]],
@@ -119,7 +119,7 @@ class AuthController extends ApiController
     }
 
     #[OA\Post(
-        path: '/api/auth/logout',
+        path: '/api/v1/auth/logout',
         tags: ['Autenticación'],
         summary: 'Cerrar sesión (revoca el token actual)',
         security: [['bearerAuth' => []]],
