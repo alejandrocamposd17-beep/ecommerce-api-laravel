@@ -16,7 +16,7 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-in
 
 COPY . .
 RUN composer dump-autoload --optimize --no-dev --no-scripts \
-    && chown -R www-data:www-data storage bootstrap/cache
+    && chown -R www-data:www-data storage bootstrap/cache database
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
@@ -24,6 +24,10 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Se ejecuta sin privilegios de root
 USER www-data
 
+# Varios procesos del servidor integrado para atender peticiones en paralelo
+ENV PHP_CLI_SERVER_WORKERS=4
+
 EXPOSE 8000
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Usa el puerto que asigne la plataforma (Render define PORT) o 8000 en local
+CMD ["sh", "-c", "exec php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
