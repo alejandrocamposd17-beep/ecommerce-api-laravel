@@ -9,14 +9,18 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\StripeEvent;
 use App\Services\StripeService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
+use Stripe\Charge;
+use Stripe\Event;
 use Stripe\Exception\ApiErrorException;
+use Stripe\Exception\CardException;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\PaymentIntent;
 
 class PaymentController extends ApiController
 {
@@ -110,7 +114,7 @@ class PaymentController extends ApiController
 
         try {
             $payment = $this->stripe->confirmPaymentIntent($payment, $request->validated('payment_method') ?? 'pm_card_visa');
-        } catch (\Stripe\Exception\CardException $e) {
+        } catch (CardException $e) {
             $payment->update(['status' => 'failed', 'stripe_response' => $e->getJsonBody()]);
             // La orden pasa a "failed" y el stock reservado vuelve al inventario
             $payment->order->markAsFailed();
@@ -190,10 +194,10 @@ class PaymentController extends ApiController
         return $this->success(['received' => true, 'type' => $event->type], 'Evento procesado.');
     }
 
-    protected function handleEvent(\Stripe\Event $event): void
+    protected function handleEvent(Event $event): void
     {
         if (in_array($event->type, ['payment_intent.succeeded', 'payment_intent.payment_failed', 'payment_intent.canceled'])) {
-            /** @var \Stripe\PaymentIntent $intent */
+            /** @var PaymentIntent $intent */
             $intent = $event->data->object;
             $payment = Payment::where('stripe_payment_intent_id', $intent->id)->first();
 
@@ -211,7 +215,7 @@ class PaymentController extends ApiController
 
         // Reembolso completo hecho desde el dashboard de Stripe
         if ($event->type === 'charge.refunded') {
-            /** @var \Stripe\Charge $charge */
+            /** @var Charge $charge */
             $charge = $event->data->object;
             $payment = Payment::where('stripe_payment_intent_id', $charge->payment_intent)->first();
 
