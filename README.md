@@ -3,7 +3,7 @@
 [![CI](https://github.com/alejandrocamposd17-beep/ecommerce-api-laravel/actions/workflows/ci.yml/badge.svg)](https://github.com/alejandrocamposd17-beep/ecommerce-api-laravel/actions/workflows/ci.yml)
 
 **Autor:** Alejandro Campos
-**Stack:** Laravel 12 · PHP 8.2+ · MySQL · Laravel Sanctum · Stripe · L5-Swagger (OpenAPI 3) · Docker · GitHub Actions
+**Stack:** Laravel 12 · PHP 8.4+ · MySQL · Laravel Sanctum · Stripe · L5-Swagger (OpenAPI 3) · Docker · GitHub Actions
 
 API REST para un e-commerce básico que cubre el flujo completo: registro de clientes, catálogo de productos, creación de órdenes y procesamiento seguro de pagos con Stripe. Toda la API está documentada en Swagger UI en la ruta `/api/documentation`.
 
@@ -44,7 +44,7 @@ API REST para un e-commerce básico que cubre el flujo completo: registro de cli
 
 ## Requisitos
 
-- PHP 8.2 o superior (extensiones: `pdo_mysql`, `mbstring`, `openssl`, `curl`, `json`)
+- PHP 8.4 o superior (extensiones: `pdo_mysql`, `mbstring`, `openssl`, `curl`, `json`)
 - Composer 2.x
 - MySQL 8 / MariaDB 10.4+
 - Cuenta de Stripe en modo prueba (gratuita)
@@ -289,7 +289,7 @@ php artisan test
 ```
 
 - **29 pruebas de integración** (SQLite en memoria): flujo de compra, stock, pagos simulados con Mockery, webhooks firmados, roles, límites de velocidad, expiración de órdenes y cabeceras de seguridad.
-- **GitHub Actions** en cada push y PR: `composer validate`, pruebas en PHP 8.2 y 8.3, generación de Swagger (valida las anotaciones OpenAPI), `composer audit` y build de la imagen Docker.
+- **GitHub Actions** en cada push y PR: `composer validate`, pruebas en PHP 8.4, generación de Swagger (valida las anotaciones OpenAPI), `composer audit` y build de la imagen Docker.
 - **Dependabot** revisa semanalmente las dependencias de Composer, las Actions y la imagen de Docker.
 
 ## Colección de Postman

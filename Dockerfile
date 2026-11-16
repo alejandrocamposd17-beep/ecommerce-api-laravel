@@ -1,5 +1,5 @@
-# Imagen de la API (PHP 8.3 + extensiones para Laravel y MySQL; SQLite ya viene incluido)
-FROM php:8.3-cli
+# Imagen de la API (PHP 8.4 + extensiones para Laravel y MySQL; SQLite ya viene incluido)
+FROM php:8.4-cli
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git unzip libzip-dev \
