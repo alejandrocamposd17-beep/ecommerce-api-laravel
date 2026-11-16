@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
+use App\Mail\OrderRefunded;
+use App\Mail\PaymentReceived;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Stripe\Event;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\StripeClient;
+use Stripe\Webhook;
 
 /**
  * Encapsula toda la comunicación con la API de Stripe (stripe/stripe-php).
@@ -116,12 +121,45 @@ class StripeService
             } else {
                 $payment->paid_at = now();
                 $order->update(['status' => Order::STATUS_PAID]);
+                Mail::to($order->user)->send(new PaymentReceived($order));
             }
         } elseif ($intent->status === 'canceled') {
             $order->markAsCancelled(); // repone el stock reservado
         }
 
         $payment->save();
+
+        return $payment;
+    }
+
+    /**
+     * Reembolsa el pago completo en Stripe y cierra la orden (repone stock y cupón).
+     */
+    public function refundPayment(Payment $payment): Payment
+    {
+        $refund = $this->stripe->refunds->create([
+            'payment_intent' => $payment->stripe_payment_intent_id,
+            'metadata' => ['order_id' => $payment->order_id],
+        ]);
+
+        return $this->markRefunded($payment, $refund->id);
+    }
+
+    /**
+     * Registra un reembolso (hecho desde la API o desde el dashboard de Stripe vía webhook).
+     * Es idempotente: si la orden ya estaba reembolsada no repone el stock otra vez.
+     */
+    public function markRefunded(Payment $payment, ?string $refundId = null): Payment
+    {
+        $payment->update([
+            'status' => 'refunded',
+            'stripe_refund_id' => $refundId ?? $payment->stripe_refund_id,
+            'refunded_at' => $payment->refunded_at ?? now(),
+        ]);
+
+        if ($payment->order->markAsRefunded()) {
+            Mail::to($payment->order->user)->send(new OrderRefunded($payment->order));
+        }
 
         return $payment;
     }
@@ -142,7 +180,7 @@ class StripeService
      * Verifica la firma del webhook. Si no hay secreto configurado se rechaza siempre:
      * con un secreto vacío cualquiera podría firmar eventos falsos.
      */
-    public function constructWebhookEvent(string $payload, string $signature): \Stripe\Event
+    public function constructWebhookEvent(string $payload, string $signature): Event
     {
         $secret = (string) config('services.stripe.webhook_secret');
 
@@ -150,6 +188,6 @@ class StripeService
             throw new SignatureVerificationException('Webhook de Stripe no configurado o sin firma.');
         }
 
-        return \Stripe\Webhook::constructEvent($payload, $signature, $secret);
+        return Webhook::constructEvent($payload, $signature, $secret);
     }
 }

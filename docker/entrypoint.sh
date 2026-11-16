@@ -1,6 +1,18 @@
 #!/bin/sh
 set -e
 
+# En Render la URL pública llega en RENDER_EXTERNAL_URL: se usa para APP_URL y Swagger
+if [ -n "$RENDER_EXTERNAL_URL" ]; then
+  export APP_URL="${APP_URL:-$RENDER_EXTERNAL_URL}"
+  export L5_SWAGGER_CONST_HOST="${L5_SWAGGER_CONST_HOST:-$RENDER_EXTERNAL_URL}"
+fi
+
+# Con SQLite (demo) se crea el archivo de la base de datos si no existe
+if [ "$DB_CONNECTION" = "sqlite" ]; then
+  DB_FILE="${DB_DATABASE:-database/database.sqlite}"
+  [ -f "$DB_FILE" ] || touch "$DB_FILE"
+fi
+
 # Descubre los paquetes instalados (se omitió en el build para no requerir .env)
 php artisan package:discover --ansi
 

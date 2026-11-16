@@ -17,6 +17,7 @@ class StoreOrderRequest extends BaseFormRequest
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100'],
             'shipping_address' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'coupon_code' => ['nullable', 'string', 'max:40', 'regex:/^[A-Za-z0-9_-]+$/'],
         ];
     }
 
@@ -25,6 +26,7 @@ class StoreOrderRequest extends BaseFormRequest
         return [
             'items.required' => 'La orden debe incluir al menos un producto.',
             'items.*.product_id.exists' => 'Uno de los productos seleccionados no existe.',
+            'coupon_code.regex' => 'El código de cupón solo puede contener letras, números, guiones y guiones bajos.',
         ];
     }
 }

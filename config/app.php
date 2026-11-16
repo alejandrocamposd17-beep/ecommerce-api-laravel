@@ -54,6 +54,12 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Proxies de confianza (ej. "*" en Render) para leer la IP real del cliente desde X-Forwarded-For
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    // Genera todas las URLs con https (cuando la app está detrás de un proxy con TLS)
+    'force_https' => (bool) env('FORCE_HTTPS', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

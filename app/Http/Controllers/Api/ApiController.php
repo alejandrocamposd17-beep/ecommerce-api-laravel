@@ -7,9 +7,9 @@ use Illuminate\Http\JsonResponse;
 use OpenApi\Attributes as OA;
 
 #[OA\Info(
-    version: '1.0.0',
+    version: '1.1.0',
     title: 'API de E-commerce Segura',
-    description: 'API REST para un e-commerce básico desarrollada con Laravel 12. Incluye autenticación con Laravel Sanctum, catálogo de productos, órdenes de compra y pagos con Stripe. Autor: Alejandro Campos.',
+    description: 'API REST para un e-commerce desarrollada con Laravel 12. Incluye autenticación con Laravel Sanctum, catálogo de productos, órdenes con cupones, pagos y reembolsos con Stripe y registro de auditoría. Versión actual: /api/v1 (las rutas /api/* sin versión siguen funcionando, pero están obsoletas). Autor: Alejandro Campos.',
     contact: new OA\Contact(name: 'Alejandro Campos')
 )]
 #[OA\Server(url: L5_SWAGGER_CONST_HOST, description: 'Servidor de la API')]
@@ -18,12 +18,13 @@ use OpenApi\Attributes as OA;
     type: 'http',
     scheme: 'bearer',
     bearerFormat: 'Sanctum Token',
-    description: 'Ingrese el token obtenido en /api/auth/login o /api/auth/register'
+    description: 'Ingrese el token obtenido en /api/v1/auth/login o /api/v1/auth/register'
 )]
 #[OA\Tag(name: 'Autenticación', description: 'Registro, inicio y cierre de sesión')]
 #[OA\Tag(name: 'Productos', description: 'Catálogo de productos (CRUD)')]
 #[OA\Tag(name: 'Órdenes', description: 'Órdenes de compra e historial')]
 #[OA\Tag(name: 'Pagos', description: 'Procesamiento de pagos con Stripe')]
+#[OA\Tag(name: 'Administración', description: 'Cupones, reembolsos y registro de auditoría (rol admin)')]
 #[OA\Schema(
     schema: 'ErrorResponse',
     properties: [
@@ -83,6 +84,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'status', type: 'string', example: 'requires_payment_method'),
         new OA\Property(property: 'payment_method', type: 'string', nullable: true),
         new OA\Property(property: 'paid_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'refunded_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     ]
 )]
@@ -91,8 +93,10 @@ use OpenApi\Attributes as OA;
     properties: [
         new OA\Property(property: 'id', type: 'integer', example: 1),
         new OA\Property(property: 'order_number', type: 'string', example: 'ORD-20250115-A1B2C3'),
-        new OA\Property(property: 'status', type: 'string', enum: ['pending', 'paid', 'failed', 'cancelled'], example: 'pending'),
+        new OA\Property(property: 'status', type: 'string', enum: ['pending', 'paid', 'failed', 'cancelled', 'refunded'], example: 'pending'),
         new OA\Property(property: 'subtotal', type: 'number', format: 'float', example: 1099.98),
+        new OA\Property(property: 'discount', type: 'number', format: 'float', example: 0),
+        new OA\Property(property: 'coupon_code', type: 'string', nullable: true, example: 'BIENVENIDA10'),
         new OA\Property(property: 'tax', type: 'number', format: 'float', example: 143.00),
         new OA\Property(property: 'total', type: 'number', format: 'float', example: 1242.98),
         new OA\Property(property: 'currency', type: 'string', example: 'usd'),
@@ -100,6 +104,36 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'notes', type: 'string', nullable: true),
         new OA\Property(property: 'items', type: 'array', items: new OA\Items(ref: '#/components/schemas/OrderItem')),
         new OA\Property(property: 'payment', ref: '#/components/schemas/Payment', nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ]
+)]
+#[OA\Schema(
+    schema: 'Coupon',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', example: 1),
+        new OA\Property(property: 'code', type: 'string', example: 'BIENVENIDA10'),
+        new OA\Property(property: 'type', type: 'string', enum: ['percent', 'fixed'], example: 'percent'),
+        new OA\Property(property: 'value', type: 'number', format: 'float', example: 10),
+        new OA\Property(property: 'min_subtotal', type: 'number', format: 'float', nullable: true, example: 50),
+        new OA\Property(property: 'max_uses', type: 'integer', nullable: true, example: 100),
+        new OA\Property(property: 'used_count', type: 'integer', example: 3),
+        new OA\Property(property: 'expires_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'is_active', type: 'boolean', example: true),
+    ]
+)]
+#[OA\Schema(
+    schema: 'AuditLog',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', example: 1),
+        new OA\Property(property: 'action', type: 'string', example: 'product.updated'),
+        new OA\Property(property: 'subject_type', type: 'string', nullable: true, example: 'Product'),
+        new OA\Property(property: 'subject_id', type: 'integer', nullable: true, example: 5),
+        new OA\Property(property: 'changes', type: 'object', nullable: true, example: ['price' => ['old' => '549.99', 'new' => '499.99']]),
+        new OA\Property(property: 'user', type: 'object', nullable: true, properties: [
+            new OA\Property(property: 'id', type: 'integer', example: 1),
+            new OA\Property(property: 'name', type: 'string', example: 'Administrador'),
+        ]),
+        new OA\Property(property: 'ip_address', type: 'string', nullable: true, example: '203.0.113.10'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     ]
 )]

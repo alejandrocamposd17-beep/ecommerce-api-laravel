@@ -1,5 +1,7 @@
 <?php
 
+use L5Swagger\Generator;
+
 return [
     'default' => 'default',
     'documentations' => [
@@ -47,7 +49,7 @@ return [
             'processors' => [],
             'pattern' => null,
             'exclude' => [],
-            'open_api_spec_version' => env('L5_SWAGGER_OPEN_API_SPEC_VERSION', \L5Swagger\Generator::OPEN_API_DEFAULT_SPEC_VERSION),
+            'open_api_spec_version' => env('L5_SWAGGER_OPEN_API_SPEC_VERSION', Generator::OPEN_API_DEFAULT_SPEC_VERSION),
         ],
         'securityDefinitions' => [
             'securitySchemes' => [],

@@ -41,10 +41,10 @@ class SecurityTest extends TestCase
     }
 
     /** Evento de Stripe firmado igual que lo hace Stripe (HMAC-SHA256 de "timestamp.payload"). */
-    private function signedWebhook(array $intent, string $type = 'payment_intent.succeeded'): array
+    private function signedWebhook(array $intent, string $type = 'payment_intent.succeeded', ?string $eventId = null): array
     {
         $payload = json_encode([
-            'id' => 'evt_test',
+            'id' => $eventId ?? 'evt_'.bin2hex(random_bytes(6)),
             'object' => 'event',
             'type' => $type,
             'data' => ['object' => array_merge(['object' => 'payment_intent'], $intent)],

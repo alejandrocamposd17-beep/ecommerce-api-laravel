@@ -1,6 +1,8 @@
 <?php
 
 use App\Exceptions\ApiExceptionHandler;
+use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -22,7 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Límite de peticiones (definido en AppServiceProvider) y cabeceras de seguridad en toda la API
         $middleware->throttleApi();
-        $middleware->appendToGroup('api', \App\Http\Middleware\SecurityHeaders::class);
+        $middleware->appendToGroup('api', SecurityHeaders::class);
+        $middleware->alias(['admin' => EnsureUserIsAdmin::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::register($exceptions);

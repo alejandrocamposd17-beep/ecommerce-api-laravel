@@ -7,9 +7,9 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\StripeService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery\MockInterface;
 use Stripe\Exception\CardException;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ApiFlowTest extends TestCase

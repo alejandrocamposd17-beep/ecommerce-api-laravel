@@ -1,0 +1,13 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - app
+        - routes
+        - database
+    tmpDir: storage/framework/cache/phpstan
+    ignoreErrors:
+        # Constante que define L5-Swagger al generar la documentación (no existe durante el análisis)
+        - '#Constant L5_SWAGGER_CONST_HOST not found#'

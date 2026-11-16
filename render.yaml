@@ -1,0 +1,44 @@
+# Demo pública en Render (plan gratuito) con SQLite.
+# La base de datos se recrea con datos de ejemplo en cada despliegue o reinicio,
+# así que la demo siempre vuelve a su estado inicial.
+services:
+  - type: web
+    name: ecommerce-api-laravel
+    runtime: docker
+    plan: free
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      - key: APP_NAME
+        value: Ecommerce API
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: DB_DATABASE
+        value: /var/www/html/database/database.sqlite
+      - key: CACHE_STORE
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: MAIL_MAILER
+        value: log
+      - key: TRUSTED_PROXIES
+        value: "*"
+      - key: FORCE_HTTPS
+        value: "true"
+      - key: L5_SWAGGER_GENERATE_ALWAYS
+        value: "false"
+      # Stripe en modo prueba (opcional): agregar las claves desde el panel de Render
+      - key: STRIPE_KEY
+        sync: false
+      - key: STRIPE_SECRET
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

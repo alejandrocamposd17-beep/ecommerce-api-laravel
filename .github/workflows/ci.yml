@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   tests:
-    name: Tests (PHP ${{ matrix.php }})
+    name: Tests y cobertura (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -23,7 +23,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, pdo_sqlite, sqlite3, bcmath, curl
-          coverage: none
+          coverage: pcov
 
       - name: Validar composer.json
         run: composer validate --no-check-publish
@@ -36,8 +36,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: Tests (PHPUnit)
-        run: php artisan test
+      - name: Tests con cobertura (mínimo 80%)
+        run: php artisan test --coverage --min=80
 
       - name: Generar documentación Swagger (valida las anotaciones OpenAPI)
         run: php artisan l5-swagger:generate
@@ -45,6 +45,34 @@ jobs:
       - name: Auditoría de dependencias (vulnerabilidades conocidas)
         run: composer audit
         continue-on-error: true
+
+  quality:
+    name: Calidad de código (Pint + Larastan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3, bcmath, curl
+          coverage: none
+
+      - name: Instalar dependencias
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Estilo de código (Laravel Pint)
+        run: |
+          vendor/bin/pint
+          git diff --exit-code
+
+      - name: Instalar Larastan
+        if: ${{ !cancelled() }}
+        run: composer require --dev larastan/larastan:^3.0 --no-interaction --no-progress --no-scripts
+
+      - name: Análisis estático (Larastan nivel 5)
+        if: ${{ !cancelled() }}
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=github
 
   docker:
     name: Build de la imagen Docker
