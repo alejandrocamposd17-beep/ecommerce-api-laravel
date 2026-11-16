@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Payment extends Model
 {
     protected $fillable = [
-        'order_id', 'stripe_payment_intent_id', 'stripe_client_secret', 'stripe_charge_id',
-        'amount', 'currency', 'status', 'payment_method', 'stripe_response', 'paid_at',
+        'order_id', 'stripe_payment_intent_id', 'stripe_client_secret', 'stripe_charge_id', 'stripe_refund_id',
+        'amount', 'currency', 'status', 'payment_method', 'stripe_response', 'paid_at', 'refunded_at',
     ];
 
     protected $hidden = ['stripe_response'];
@@ -20,6 +20,7 @@ class Payment extends Model
             'amount' => 'decimal:2',
             'stripe_response' => 'array',
             'paid_at' => 'datetime',
+            'refunded_at' => 'datetime',
         ];
     }
 
