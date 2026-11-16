@@ -17,7 +17,7 @@ jobs:
       matrix:
         php: ['8.4']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -50,7 +50,7 @@ jobs:
     name: Calidad de código (Pint + Larastan)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -78,6 +78,6 @@ jobs:
     name: Build de la imagen Docker
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Construir imagen
         run: docker build -t ecommerce-api:ci .
