@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Mail\OrderRefunded;
+use App\Mail\PaymentReceived;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\StripeClient;
@@ -116,12 +119,45 @@ class StripeService
             } else {
                 $payment->paid_at = now();
                 $order->update(['status' => Order::STATUS_PAID]);
+                Mail::to($order->user)->send(new PaymentReceived($order));
             }
         } elseif ($intent->status === 'canceled') {
             $order->markAsCancelled(); // repone el stock reservado
         }
 
         $payment->save();
+
+        return $payment;
+    }
+
+    /**
+     * Reembolsa el pago completo en Stripe y cierra la orden (repone stock y cupón).
+     */
+    public function refundPayment(Payment $payment): Payment
+    {
+        $refund = $this->stripe->refunds->create([
+            'payment_intent' => $payment->stripe_payment_intent_id,
+            'metadata' => ['order_id' => $payment->order_id],
+        ]);
+
+        return $this->markRefunded($payment, $refund->id);
+    }
+
+    /**
+     * Registra un reembolso (hecho desde la API o desde el dashboard de Stripe vía webhook).
+     * Es idempotente: si la orden ya estaba reembolsada no repone el stock otra vez.
+     */
+    public function markRefunded(Payment $payment, ?string $refundId = null): Payment
+    {
+        $payment->update([
+            'status' => 'refunded',
+            'stripe_refund_id' => $refundId ?? $payment->stripe_refund_id,
+            'refunded_at' => $payment->refunded_at ?? now(),
+        ]);
+
+        if ($payment->order->markAsRefunded()) {
+            Mail::to($payment->order->user)->send(new OrderRefunded($payment->order));
+        }
 
         return $payment;
     }
