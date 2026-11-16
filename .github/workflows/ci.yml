@@ -67,9 +67,11 @@ jobs:
           git diff --exit-code
 
       - name: Instalar Larastan
+        if: ${{ !cancelled() }}
         run: composer require --dev larastan/larastan:^3.0 --no-interaction --no-progress --no-scripts
 
       - name: Análisis estático (Larastan nivel 5)
+        if: ${{ !cancelled() }}
         run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=github
 
   docker:
