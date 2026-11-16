@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** @mixin \App\Models\Order */
 class OrderResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -14,6 +15,8 @@ class OrderResource extends JsonResource
             'order_number' => $this->order_number,
             'status' => $this->status,
             'subtotal' => (float) $this->subtotal,
+            'discount' => (float) $this->discount,
+            'coupon_code' => $this->whenLoaded('coupon', fn () => $this->coupon?->code),
             'tax' => (float) $this->tax,
             'total' => (float) $this->total,
             'currency' => $this->currency,
