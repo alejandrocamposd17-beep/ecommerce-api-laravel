@@ -1,7 +1,9 @@
 # API de E-commerce Segura con Swagger Completo
 
+[![CI](https://github.com/alejandrocamposd17-beep/ecommerce-api-laravel/actions/workflows/ci.yml/badge.svg)](https://github.com/alejandrocamposd17-beep/ecommerce-api-laravel/actions/workflows/ci.yml)
+
 **Autor:** Alejandro Campos
-**Stack:** Laravel 12 · PHP 8.2+ · MySQL · Laravel Sanctum · Stripe · L5-Swagger (OpenAPI 3)
+**Stack:** Laravel 12 · PHP 8.2+ · MySQL · Laravel Sanctum · Stripe · L5-Swagger (OpenAPI 3) · Docker · GitHub Actions
 
 API REST para un e-commerce básico que cubre el flujo completo: registro de clientes, catálogo de productos, creación de órdenes y procesamiento seguro de pagos con Stripe. Toda la API está documentada en Swagger UI en la ruta `/api/documentation`.
 
@@ -20,6 +22,10 @@ API REST para un e-commerce básico que cubre el flujo completo: registro de cli
 9. [Manejo de errores](#manejo-de-errores)
 10. [Estructura del proyecto](#estructura-del-proyecto)
 11. [Usuarios de prueba](#usuarios-de-prueba)
+12. [Seguridad](#seguridad)
+13. [Docker](#docker)
+14. [Pruebas y CI](#pruebas-y-ci)
+15. [Colección de Postman](#colección-de-postman)
 
 ---
 
@@ -202,14 +208,16 @@ Todas las respuestas siguen el mismo formato:
 | 402    | Pago rechazado por Stripe                    |
 | 403    | Sin permisos (solo admin)                    |
 | 404    | Recurso inexistente o ajeno al usuario       |
-| 409    | Conflicto (stock insuficiente, orden pagada) |
+| 409    | Conflicto (stock insuficiente, orden pagada, demasiadas órdenes pendientes) |
 | 422    | Error de validación (Form Request)           |
+| 429    | Demasiadas peticiones (límite de velocidad)  |
 | 502    | Error de comunicación con Stripe             |
 
 ## Estructura del proyecto
 
 ```
 app/
+├── Console/Commands/ExpirePendingOrders.php  # Cancela órdenes sin pagar y libera stock
 ├── Exceptions/ApiExceptionHandler.php   # Respuestas de error JSON centralizadas
 ├── Http/
 │   ├── Controllers/Api/
@@ -218,6 +226,7 @@ app/
 │   │   ├── ProductController.php
 │   │   ├── OrderController.php
 │   │   └── PaymentController.php
+│   ├── Middleware/SecurityHeaders.php   # Cabeceras de seguridad
 │   ├── Requests/                        # Form Requests (validaciones)
 │   └── Resources/                       # API Resources (formato de salida)
 ├── Models/                              # User, Product, Order, OrderItem, Payment
@@ -227,6 +236,9 @@ database/
 └── seeders/                             # UserSeeder, ProductSeeder
 routes/api.php                           # Definición de rutas
 config/l5-swagger.php                    # Configuración Swagger
+config/shop.php                          # IVA, tiempo de expiración y límite de órdenes pendientes
+tests/Feature/                           # ApiFlowTest + SecurityTest
+docs/                                    # Colección de Postman
 ```
 
 ## Usuarios de prueba
@@ -237,11 +249,52 @@ config/l5-swagger.php                    # Configuración Swagger
 | Cliente  | alejandro@example.com   | password   |
 | Cliente  | cliente@example.com     | password   |
 
-## Pruebas
+## Seguridad
+
+Además de Sanctum, roles y Form Requests, la API incluye estas protecciones (cada una con su prueba en `tests/Feature/SecurityTest.php`):
+
+| Riesgo | Protección |
+|---|---|
+| Webhooks falsos de Stripe | Se rechaza cualquier webhook si `STRIPE_WEBHOOK_SECRET` no está configurado (con un secreto vacío cualquiera podría firmar eventos) y se verifica la firma HMAC. |
+| Pagos manipulados | Una orden solo pasa a `paid` si el **monto, la moneda y el `order_id`** del PaymentIntent coinciden con la orden. |
+| Cobrar órdenes cerradas | No se confirma ni se marca como pagada una orden expirada, fallida o cancelada (su stock ya se liberó); se registra para reembolso. |
+| Acaparar inventario | Las órdenes sin pagar expiran a los 30 min (`orders:expire-pending`, cada 5 min) y cada usuario puede tener máximo 5 pendientes. |
+| Fuerza bruta y abuso | Límites de velocidad: 10/min en registro y login por IP, 10/min en órdenes y pagos por usuario y 60/min en toda la API. |
+| Confirmación de pagos desde el servidor | `/payments/{id}/confirm` (tarjetas de prueba) se desactiva en producción; ahí se confirma con Stripe.js. El `payment_method` debe tener formato `pm_…`. |
+| Escalada de privilegios | El registro siempre crea `customer` (se ignora `role` en la petición); solo `admin` gestiona productos. |
+| Acceso a datos ajenos | Órdenes y pagos de otros usuarios responden 404 (no se revela que existen). |
+| Fuga de información | Los errores de Stripe se registran en el log y el cliente recibe un mensaje genérico; sin `APP_DEBUG` no se exponen trazas. |
+| Productos ocultos | Los productos desactivados no se muestran al público. |
+| Cabeceras HTTP | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` y `Cache-Control: no-store` en respuestas autenticadas. |
+| Tokens | Expiran a las 24 h (`SANCTUM_TOKEN_EXPIRATION`) y `logout` los revoca. |
+
+> **Tareas programadas:** para que las órdenes expiren, ejecuta `php artisan schedule:work` (desarrollo) o agrega al cron del servidor `* * * * * php artisan schedule:run`. Con Docker ya corre en el servicio `scheduler`.
+
+## Docker
+
+```bash
+cp .env.example .env            # opcional: agrega tus claves de Stripe
+docker compose up --build
+```
+
+- API y Swagger: http://localhost:8000/api/documentation
+- Levanta 3 servicios: `app` (API), `db` (MySQL 8.4) y `scheduler` (expiración de órdenes).
+- Al iniciar ejecuta migraciones, carga los datos de ejemplo una sola vez y genera Swagger.
+- La imagen corre sin privilegios de root (`www-data`).
+
+## Pruebas y CI
 
 ```bash
 php artisan test
 ```
+
+- **29 pruebas de integración** (SQLite en memoria): flujo de compra, stock, pagos simulados con Mockery, webhooks firmados, roles, límites de velocidad, expiración de órdenes y cabeceras de seguridad.
+- **GitHub Actions** en cada push y PR: `composer validate`, pruebas en PHP 8.2 y 8.3, generación de Swagger (valida las anotaciones OpenAPI), `composer audit` y build de la imagen Docker.
+- **Dependabot** revisa semanalmente las dependencias de Composer, las Actions y la imagen de Docker.
+
+## Colección de Postman
+
+Importa `docs/ecommerce-api.postman_collection.json` en Postman. Al ejecutar **Login** el token se guarda automáticamente, y **Crear orden** / **Iniciar pago** guardan los IDs para los siguientes pasos.
 
 ---
 
