@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Límite de peticiones (definido en AppServiceProvider) y cabeceras de seguridad en toda la API
         $middleware->throttleApi();
         $middleware->appendToGroup('api', \App\Http\Middleware\SecurityHeaders::class);
+        $middleware->alias(['admin' => \App\Http\Middleware\EnsureUserIsAdmin::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::register($exceptions);
