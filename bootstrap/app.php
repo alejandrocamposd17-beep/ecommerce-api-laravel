@@ -19,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Sin token, no redirigir a una ruta "login" (no existe en una API):
         // se lanza AuthenticationException y ApiExceptionHandler responde 401 en JSON.
         $middleware->redirectGuestsTo(fn () => null);
+
+        // Límite de peticiones (definido en AppServiceProvider) y cabeceras de seguridad en toda la API
+        $middleware->throttleApi();
+        $middleware->appendToGroup('api', \App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionHandler::register($exceptions);

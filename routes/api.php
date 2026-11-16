@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Route;
 
 // Rutas públicas
 Route::prefix('auth')->group(function () {
-    Route::post('register', [AuthController::class, 'register']);
-    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:auth');
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:auth');
 });
 
 Route::get('products', [ProductController::class, 'index']);
@@ -37,11 +37,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Órdenes
     Route::get('orders', [OrderController::class, 'index']);
-    Route::post('orders', [OrderController::class, 'store']);
+    Route::post('orders', [OrderController::class, 'store'])->middleware('throttle:checkout');
     Route::get('orders/{order}', [OrderController::class, 'show']);
-    Route::post('orders/{order}/pay', [PaymentController::class, 'pay']);
+    Route::post('orders/{order}/pay', [PaymentController::class, 'pay'])->middleware('throttle:checkout');
 
     // Pagos
     Route::get('payments/{payment}', [PaymentController::class, 'show']);
-    Route::post('payments/{payment}/confirm', [PaymentController::class, 'confirm']);
+    Route::post('payments/{payment}/confirm', [PaymentController::class, 'confirm'])->middleware('throttle:checkout');
 });

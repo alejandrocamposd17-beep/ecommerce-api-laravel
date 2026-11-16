@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\SignatureVerificationException;
@@ -55,7 +56,7 @@ class PaymentController extends ApiController
         try {
             $payment = $this->stripe->createPaymentIntent($order);
         } catch (ApiErrorException $e) {
-            return $this->error('Error al comunicarse con Stripe: '.$e->getMessage(), 502);
+            return $this->stripeUnavailable($e, 'pay', $order->id);
         }
 
         return $this->success(new PaymentResource($payment), 'Intento de pago creado. Use el client_secret para completar el pago.', 201);
@@ -92,6 +93,17 @@ class PaymentController extends ApiController
             return $this->success(new PaymentResource($payment), 'Este pago ya fue procesado.');
         }
 
+        // Confirmar desde el backend con tarjetas de prueba es solo para desarrollo/QA:
+        // en producción el cliente confirma con Stripe.js usando el client_secret.
+        if (app()->isProduction() && ! config('services.stripe.allow_server_confirm')) {
+            return $this->error('La confirmación desde el servidor solo está disponible en modo de prueba. Use Stripe.js con el client_secret.', 403);
+        }
+
+        // No se puede cobrar una orden que ya expiró, falló o se canceló (su stock ya se liberó)
+        if ($payment->order->status !== Order::STATUS_PENDING) {
+            return $this->error("La orden se encuentra en estado '{$payment->order->status}' y no puede pagarse.", 409);
+        }
+
         try {
             $payment = $this->stripe->confirmPaymentIntent($payment, $request->validated('payment_method') ?? 'pm_card_visa');
         } catch (\Stripe\Exception\CardException $e) {
@@ -101,7 +113,7 @@ class PaymentController extends ApiController
 
             return $this->error('Pago rechazado: '.$e->getMessage(), 402);
         } catch (ApiErrorException $e) {
-            return $this->error('Error al comunicarse con Stripe: '.$e->getMessage(), 502);
+            return $this->stripeUnavailable($e, 'confirm', $payment->order_id);
         }
 
         return $this->success(new PaymentResource($payment), $payment->status === 'succeeded' ? 'Pago procesado correctamente.' : "Estado del pago: {$payment->status}.");
@@ -172,5 +184,15 @@ class PaymentController extends ApiController
         }
 
         return $this->success(['received' => true, 'type' => $event->type], 'Evento procesado.');
+    }
+
+    /**
+     * Error genérico hacia el cliente: el detalle de Stripe se registra en el log, no se expone.
+     */
+    protected function stripeUnavailable(ApiErrorException $e, string $action, int|string|null $orderId): JsonResponse
+    {
+        Log::error('Error de Stripe', ['action' => $action, 'order_id' => $orderId, 'message' => $e->getMessage()]);
+
+        return $this->error('No se pudo procesar el pago con Stripe. Intente de nuevo en unos minutos.', 502);
     }
 }

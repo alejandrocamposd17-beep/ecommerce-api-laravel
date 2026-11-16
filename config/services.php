@@ -39,6 +39,9 @@ return [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        // Confirmar pagos desde el backend (con métodos de prueba) solo se permite fuera de producción,
+        // salvo que se habilite explícitamente.
+        'allow_server_confirm' => (bool) env('STRIPE_ALLOW_SERVER_CONFIRM', false),
     ],
 
 ];

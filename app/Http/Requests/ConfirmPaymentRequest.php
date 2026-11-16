@@ -12,7 +12,7 @@ class ConfirmPaymentRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
-            'payment_method' => ['nullable', 'string', 'max:100'],
+            'payment_method' => ['nullable', 'string', 'max:100', 'regex:/^pm_[A-Za-z0-9_]+$/'],
         ];
     }
 }

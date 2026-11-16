@@ -90,6 +90,7 @@ class Order extends Model
 
     public static function generateOrderNumber(): string
     {
-        return 'ORD-'.now()->format('Ymd').'-'.strtoupper(substr(uniqid(), -6));
+        // 8 caracteres aleatorios (criptográficamente seguros): no predecibles ni secuenciales
+        return 'ORD-'.now()->format('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(8));
     }
 }

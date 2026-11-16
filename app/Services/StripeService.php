@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Payment;
+use Illuminate\Support\Facades\Log;
+use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\StripeClient;
 
@@ -16,7 +18,8 @@ class StripeService
 
     public function __construct()
     {
-        $this->stripe = new StripeClient(config('services.stripe.secret'));
+        // Sin clave configurada se crea el cliente vacío (las llamadas fallarán con un error controlado)
+        $this->stripe = new StripeClient(config('services.stripe.secret') ?: []);
     }
 
     /**
@@ -70,6 +73,22 @@ class StripeService
         return $this->applyIntent($payment, $intent);
     }
 
+    /**
+     * Cancela un PaymentIntent que todavía no se ha cobrado (por ejemplo, al expirar la orden).
+     */
+    public function cancelPaymentIntent(Payment $payment): void
+    {
+        $this->stripe->paymentIntents->cancel($payment->stripe_payment_intent_id);
+        $payment->update(['status' => 'canceled']);
+    }
+
+    /**
+     * Aplica el estado de un PaymentIntent al pago y a la orden.
+     *
+     * Seguridad: una orden solo pasa a "paid" si el monto, la moneda y la orden del intent
+     * coinciden con lo registrado, y si la orden sigue pendiente (no se marcan como pagadas
+     * órdenes canceladas cuyo stock ya se liberó).
+     */
     public function applyIntent(Payment $payment, PaymentIntent $intent): Payment
     {
         $payment->status = $intent->status;
@@ -77,11 +96,29 @@ class StripeService
         $payment->stripe_charge_id = $intent->latest_charge ?? null;
         $payment->stripe_response = $intent->toArray();
 
+        $order = $payment->order;
+
         if ($intent->status === 'succeeded') {
-            $payment->paid_at = now();
-            $payment->order->update(['status' => Order::STATUS_PAID]);
-        } elseif (in_array($intent->status, ['canceled'])) {
-            $payment->order->markAsCancelled(); // repone el stock reservado
+            if (! $this->intentMatchesOrder($intent, $order)) {
+                Log::critical('Pago de Stripe no coincide con la orden; no se marca como pagada.', [
+                    'payment_id' => $payment->id,
+                    'order_id' => $order->id,
+                    'intent_amount' => $intent->amount,
+                    'intent_currency' => $intent->currency,
+                ]);
+            } elseif ($order->status !== Order::STATUS_PENDING) {
+                // Ej.: la orden expiró y su stock se liberó antes de que llegara el pago
+                Log::warning('Pago recibido para una orden que ya no está pendiente: requiere revisión o reembolso.', [
+                    'payment_id' => $payment->id,
+                    'order_id' => $order->id,
+                    'order_status' => $order->status,
+                ]);
+            } else {
+                $payment->paid_at = now();
+                $order->update(['status' => Order::STATUS_PAID]);
+            }
+        } elseif ($intent->status === 'canceled') {
+            $order->markAsCancelled(); // repone el stock reservado
         }
 
         $payment->save();
@@ -89,8 +126,30 @@ class StripeService
         return $payment;
     }
 
+    /** Verifica que el intent corresponda a la orden: monto en centavos, moneda y metadata. */
+    protected function intentMatchesOrder(PaymentIntent $intent, Order $order): bool
+    {
+        $expectedAmount = (int) round(((float) $order->total) * 100);
+        $metadata = $intent->metadata ?? null;
+        $metadataOrderId = $metadata ? ($metadata['order_id'] ?? null) : null;
+
+        return (int) $intent->amount === $expectedAmount
+            && strtolower((string) $intent->currency) === strtolower($order->currency)
+            && (string) $metadataOrderId === (string) $order->id;
+    }
+
+    /**
+     * Verifica la firma del webhook. Si no hay secreto configurado se rechaza siempre:
+     * con un secreto vacío cualquiera podría firmar eventos falsos.
+     */
     public function constructWebhookEvent(string $payload, string $signature): \Stripe\Event
     {
-        return \Stripe\Webhook::constructEvent($payload, $signature, config('services.stripe.webhook_secret'));
+        $secret = (string) config('services.stripe.webhook_secret');
+
+        if ($secret === '' || $signature === '') {
+            throw new SignatureVerificationException('Webhook de Stripe no configurado o sin firma.');
+        }
+
+        return \Stripe\Webhook::constructEvent($payload, $signature, $secret);
     }
 }
