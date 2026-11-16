@@ -14,6 +14,7 @@ use OpenApi\Attributes as OA;
 class OrderController extends ApiController
 {
     /** Porcentaje de IVA aplicado (El Salvador: 13%). */
+    /** IVA por defecto; el valor real se lee de config('shop.tax_rate'). */
     public const TAX_RATE = 0.13;
 
     #[OA\Get(
@@ -41,7 +42,7 @@ class OrderController extends ApiController
             ->with(['items', 'payment'])
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->latest()
-            ->paginate(min((int) $request->get('per_page', 15), 100));
+            ->paginate(max(1, min((int) $request->get('per_page', 15), 100)));
 
         return response()->json([
             'success' => true,
@@ -89,6 +90,12 @@ class OrderController extends ApiController
     )]
     public function store(StoreOrderRequest $request): JsonResponse
     {
+        // Evita que un usuario acapare inventario con muchas órdenes sin pagar
+        $pending = $request->user()->orders()->where('status', Order::STATUS_PENDING)->count();
+        if ($pending >= config('shop.max_pending_orders_per_user', 5)) {
+            return $this->error('Tiene demasiadas órdenes pendientes de pago. Pague o espere a que expiren antes de crear otra.', 409);
+        }
+
         $items = collect($request->validated('items'))
             ->groupBy('product_id')
             ->map(fn ($group) => $group->sum('quantity'));
@@ -122,7 +129,7 @@ class OrderController extends ApiController
                     $product->decrement('stock', $quantity);
                 }
 
-                $tax = round($subtotal * self::TAX_RATE, 2);
+                $tax = round($subtotal * (float) config('shop.tax_rate', self::TAX_RATE), 2);
 
                 $order = Order::create([
                     'user_id' => $request->user()->id,

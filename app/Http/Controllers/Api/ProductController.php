@@ -35,10 +35,11 @@ class ProductController extends ApiController
     {
         $products = Product::query()
             ->where('is_active', true)
-            ->when($request->search, fn ($q, $s) => $q->where(fn ($w) => $w->where('name', 'like', "%{$s}%")->orWhere('description', 'like', "%{$s}%")))
-            ->when($request->category, fn ($q, $c) => $q->where('category', $c))
+            // Búsqueda limitada a 100 caracteres (los valores siempre van como parámetros enlazados)
+            ->when(mb_substr(trim((string) $request->query('search', '')), 0, 100), fn ($q, $s) => $q->where(fn ($w) => $w->where('name', 'like', "%{$s}%")->orWhere('description', 'like', "%{$s}%")))
+            ->when(mb_substr((string) $request->query('category', ''), 0, 100), fn ($q, $c) => $q->where('category', $c))
             ->orderBy('name')
-            ->paginate(min((int) $request->get('per_page', 15), 100));
+            ->paginate(max(1, min((int) $request->get('per_page', 15), 100)));
 
         return response()->json([
             'success' => true,
@@ -69,6 +70,11 @@ class ProductController extends ApiController
     )]
     public function show(Product $product): JsonResponse
     {
+        // Los productos desactivados solo los ve un administrador (el listado público ya los oculta)
+        if (! $product->is_active && ! auth('sanctum')->user()?->isAdmin()) {
+            return $this->error('El recurso solicitado no existe.', 404);
+        }
+
         return $this->success(new ProductResource($product), 'Detalle del producto.');
     }
 
