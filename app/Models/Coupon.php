@@ -4,7 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property Carbon|null $expires_at
+ * @property bool $is_active
+ * @property int $used_count
+ * @property int|null $max_uses
+ */
 class Coupon extends Model
 {
     public const TYPE_PERCENT = 'percent';
@@ -31,6 +38,7 @@ class Coupon extends Model
         $this->attributes['code'] = strtoupper(trim($value));
     }
 
+    /** @return HasMany<Order, $this> */
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);

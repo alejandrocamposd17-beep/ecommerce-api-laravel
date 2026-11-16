@@ -4,7 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property array<string, mixed>|null $stripe_response
+ * @property Carbon|null $paid_at
+ * @property Carbon|null $refunded_at
+ */
 class Payment extends Model
 {
     protected $fillable = [
@@ -24,6 +30,7 @@ class Payment extends Model
         ];
     }
 
+    /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);

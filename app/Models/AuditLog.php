@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 /**
  * Registro de auditoría de acciones administrativas (quién cambió qué y cuándo).
  * Es de solo escritura: no se actualiza ni se elimina desde la API.
+ *
+ * @property array<string, mixed>|null $changes
  */
 class AuditLog extends Model
 {
@@ -24,6 +26,7 @@ class AuditLog extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
