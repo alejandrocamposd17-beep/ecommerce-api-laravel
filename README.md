@@ -10,9 +10,18 @@
 
 API REST para un e-commerce que cubre el flujo completo: registro de clientes, catálogo de productos, órdenes con cupones de descuento, pagos y reembolsos con Stripe, correos en segundo plano y registro de auditoría. Toda la API está documentada en Swagger UI en la ruta `/api/documentation`.
 
-**Demo en vivo:** se despliega en Render con un clic (plan gratuito, SQLite con datos de ejemplo que se reinician en cada despliegue):
+## Demo en vivo
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/alejandrocamposd17-beep/ecommerce-api-laravel)
+| | |
+|---|---|
+| **Swagger (probar la API)** | https://ecommerce-api-laravel.onrender.com/api/documentation |
+| **API base** | https://ecommerce-api-laravel.onrender.com/api/v1 |
+| **Usuario de prueba** | `alejandro@example.com` / `password` (admin: `admin@ecommerce.com` / `password`) |
+| **Cupón de prueba** | `BIENVENIDA10` |
+
+> Está en el plan gratuito de Render: si estuvo inactiva, la primera petición tarda cerca de un minuto en despertar. Los datos vuelven a los de ejemplo en cada reinicio.
+
+¿Tu propia copia? [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/alejandrocamposd17-beep/ecommerce-api-laravel)
 
 ---
 
@@ -338,7 +347,7 @@ Importa `docs/ecommerce-api.postman_collection.json` en Postman. Al ejecutar **L
 
 `render.yaml` define el despliegue en el plan gratuito de Render con Docker y SQLite:
 
-1. Pulsa el botón **Deploy to Render** de arriba (o en Render: *New → Blueprint* y elige este repositorio).
+1. Pulsa el botón **Deploy to Render** de la sección [Demo en vivo](#demo-en-vivo) (o en Render: *New → Blueprint* y elige este repositorio).
 2. Render construye la imagen y la publica en `https://<nombre>.onrender.com`. Swagger queda en `/api/documentation`.
 3. Opcional: agrega `STRIPE_KEY`, `STRIPE_SECRET` y `STRIPE_WEBHOOK_SECRET` (modo prueba) en *Environment* para probar los pagos.
 
