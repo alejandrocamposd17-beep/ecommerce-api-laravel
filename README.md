@@ -288,7 +288,7 @@ docker compose up --build
 php artisan test
 ```
 
-- **29 pruebas de integración** (SQLite en memoria): flujo de compra, stock, pagos simulados con Mockery, webhooks firmados, roles, límites de velocidad, expiración de órdenes y cabeceras de seguridad.
+- **30 pruebas de integración** (SQLite en memoria): flujo de compra, stock, pagos simulados con Mockery, webhooks firmados, roles, límites de velocidad, expiración de órdenes y cabeceras de seguridad.
 - **GitHub Actions** en cada push y PR: `composer validate`, pruebas en PHP 8.4, generación de Swagger (valida las anotaciones OpenAPI), `composer audit` y build de la imagen Docker.
 - **Dependabot** revisa semanalmente las dependencias de Composer, las Actions y la imagen de Docker.
 
