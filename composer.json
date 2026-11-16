@@ -11,7 +11,7 @@
     "require": {
         "php": "^8.2",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1",
+        "laravel/tinker": "^3.1.0",
         "laravel/sanctum": "^4.0",
         "stripe/stripe-php": "^16.0",
         "darkaonline/l5-swagger": "^9.0"
@@ -23,7 +23,7 @@
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^11.5.50"
+        "phpunit/phpunit": "^13.4.7"
     },
     "autoload": {
         "psr-4": {
