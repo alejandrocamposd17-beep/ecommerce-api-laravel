@@ -198,7 +198,7 @@ class PaymentController extends ApiController
     {
         if (in_array($event->type, ['payment_intent.succeeded', 'payment_intent.payment_failed', 'payment_intent.canceled'])) {
             /** @var PaymentIntent $intent */
-            $intent = $event->data->object;
+            $intent = $event->data['object'];
             $payment = Payment::where('stripe_payment_intent_id', $intent->id)->first();
 
             if ($payment) {
@@ -216,7 +216,7 @@ class PaymentController extends ApiController
         // Reembolso completo hecho desde el dashboard de Stripe
         if ($event->type === 'charge.refunded') {
             /** @var Charge $charge */
-            $charge = $event->data->object;
+            $charge = $event->data['object'];
             $payment = Payment::where('stripe_payment_intent_id', $charge->payment_intent)->first();
 
             if ($payment && $charge->refunded) {
